@@ -226,7 +226,7 @@
     .task.verifying .task-status { background: var(--amber); }
     .task.pass .task-status { background: var(--green); }
     .task.fail .task-status { background: var(--red); }
-    .task-elapsed, .children {
+    .task-elapsed, .children, .task-log {
       color: var(--muted);
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 10px;
@@ -235,6 +235,13 @@
       text-align: right;
       color: #b9f3ff;
       font-weight: 800;
+    }
+    .task-log {
+      grid-column: 1 / -1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     @keyframes dotPulse {
       0% { box-shadow: 0 0 0 0 rgba(40,215,255,.62), 0 0 24px rgba(40,215,255,.86); }
@@ -271,11 +278,44 @@
     const subtitle = document.getElementById("subtitle");
     const topDot = document.getElementById("topDot");
     const clock = document.getElementById("clock");
-    const htmlEscapes = {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"};
     let currentRuns = [];
+    const runNodes = new Map();
+    let emptyNode = app.querySelector(".empty");
 
-    function escapeHTML(value) {
-      return String(value ?? "").replace(/[&<>"']/g, char => htmlEscapes[char]);
+    function setText(node, value) {
+      const text = String(value ?? "");
+      if (node.textContent !== text) node.textContent = text;
+    }
+
+    function setTitle(node, value) {
+      const text = String(value ?? "");
+      if (node.title !== text) node.title = text;
+    }
+
+    function setHidden(node, hidden) {
+      if (node.hidden !== hidden) node.hidden = hidden;
+    }
+
+    function safeClass(value, fallback) {
+      const className = String(value || fallback || "unknown")
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      return className || fallback || "unknown";
+    }
+
+    function setStateClass(node, baseClass, state) {
+      const nextClass = `${baseClass} ${safeClass(state, "unknown")}`;
+      if (node.className !== nextClass) node.className = nextClass;
+    }
+
+    function numberOrZero(value) {
+      const number = Number(value);
+      return Number.isFinite(number) ? number : 0;
+    }
+
+    function formatTokens(value) {
+      return `${numberOrZero(value).toLocaleString()} tok`;
     }
 
     function identityColor(name) {
@@ -313,9 +353,9 @@
         const totals = run.totals || {};
         const summary = run.summary || {};
         const state = run.state || (run.finished ? "finished" : "live");
-        const pass = Number(run.pass ?? summary.pass ?? totals.pass ?? 0);
-        const fail = Number(run.fail ?? summary.fail ?? totals.fail ?? 0);
-        const tokens = Number(run.tokens ?? summary.tokens ?? totals.tokens ?? 0);
+        const pass = numberOrZero(run.pass ?? summary.pass ?? totals.pass ?? 0);
+        const fail = numberOrZero(run.fail ?? summary.fail ?? totals.fail ?? 0);
+        const tokens = numberOrZero(run.tokens ?? summary.tokens ?? totals.tokens ?? 0);
         return {
           ...run,
           state,
@@ -336,43 +376,224 @@
       });
     }
 
-    function renderTask(task) {
-      const status = task.status || "queued";
-      const children = Number(task.children || 0);
-      const engine = task.engine ? ` / ${escapeHTML(task.engine)}` : "";
-      return `
-        <div class="task ${escapeHTML(status)}">
-          <div class="task-key" title="${escapeHTML(task.key)}${engine}">${escapeHTML(task.key || "task")}</div>
-          <div class="task-status">${escapeHTML(status)}</div>
-          <div class="task-elapsed">${fmtElapsed(task.elapsed_s)}</div>
-          <div class="children">${children > 0 ? `&#10551;${children}` : ""}</div>
-        </div>
-      `;
+    function createEmptyNode() {
+      const node = document.createElement("div");
+      node.className = "empty";
+      node.textContent = "no ringers running";
+      return node;
     }
 
-    function renderRun(run) {
+    function runKey(run, index) {
+      const direct = run.run_id ?? run.id;
+      if (direct) return String(direct);
+      const parts = [run.identity, run.run_name, run.started_at, run.pid, run.port]
+        .filter(value => value !== undefined && value !== null && value !== "");
+      return parts.length > 0 ? parts.map(String).join("|") : `run-${index}`;
+    }
+
+    function taskKey(task, index) {
+      return String(task.__taskKey || task.key || task.id || task.name || `task-${index}`);
+    }
+
+    function taskTailText(task) {
+      const tail = Array.isArray(task.log_tail)
+        ? task.log_tail
+        : (task.log_tail ? [task.log_tail] : []);
+      return tail.map(line => String(line).trim()).filter(Boolean).join(" / ");
+    }
+
+    function createRunRecord(key) {
+      const node = document.createElement("section");
+      node.className = "run";
+      node.setAttribute("data-run-id", key);
+
+      const head = document.createElement("header");
+      head.className = "run-head";
+
+      const dot = document.createElement("span");
+      dot.className = "dot";
+
+      const main = document.createElement("div");
+      main.className = "run-main";
+
+      const name = document.createElement("div");
+      name.className = "run-name";
+
+      const identity = document.createElement("span");
+      identity.className = "identity";
+
+      const meta = document.createElement("div");
+      meta.className = "run-meta";
+
+      const elapsed = document.createElement("span");
+      elapsed.className = "run-elapsed";
+
+      const tokens = document.createElement("span");
+      tokens.className = "run-tokens";
+
+      const final = document.createElement("span");
+      final.className = "final";
+
+      const tasks = document.createElement("div");
+      tasks.className = "tasks";
+
+      main.append(name, identity);
+      meta.append(elapsed, tokens, final);
+      head.append(dot, main, meta);
+      node.append(head, tasks);
+
+      return {
+        node,
+        tasks: new Map(),
+        elements: {dot, name, identity, elapsed, tokens, final, tasks}
+      };
+    }
+
+    function createTaskRecord(key) {
+      const node = document.createElement("div");
+      node.className = "task";
+      node.setAttribute("data-task-key", key);
+
+      const name = document.createElement("div");
+      name.className = "task-key";
+
+      const status = document.createElement("div");
+      status.className = "task-status";
+
+      const elapsed = document.createElement("div");
+      elapsed.className = "task-elapsed";
+
+      const children = document.createElement("div");
+      children.className = "children";
+
+      const log = document.createElement("div");
+      log.className = "task-log";
+      log.hidden = true;
+
+      node.append(name, status, elapsed, children, log);
+
+      return {node, elements: {name, status, elapsed, children, log}};
+    }
+
+    function updateTaskRecord(record, task) {
+      const status = task.status || "queued";
+      const tail = taskTailText(task);
+      const tokens = numberOrZero(task.tokens);
+      const elapsed = tokens > 0
+        ? `${fmtElapsed(task.elapsed_s)} / ${tokens.toLocaleString()} tok`
+        : fmtElapsed(task.elapsed_s);
+      const children = numberOrZero(task.children);
+      const name = task.key || "task";
+      const title = task.engine ? `${name} / ${task.engine}` : name;
+
+      const taskClass = `task ${safeClass(status, "queued")}${tail ? " has-log" : ""}`;
+      if (record.node.className !== taskClass) record.node.className = taskClass;
+      setText(record.elements.name, name);
+      setTitle(record.elements.name, title);
+      setText(record.elements.status, status);
+      setText(record.elements.elapsed, elapsed);
+      setText(record.elements.children, children > 0 ? `p${children}` : "");
+      setText(record.elements.log, tail);
+      setTitle(record.elements.log, tail);
+      setHidden(record.elements.log, tail.length === 0);
+    }
+
+    function updateRunRecord(record, run) {
       const identity = run.identity || "unknown";
+      const name = run.run_name || "ringer";
       const final = run.state === "finished"
-        ? `<span class="final">&check;${run.pass} &cross;${run.fail}</span>`
-        : (run.state === "died" ? `<span class="final">died</span>` : "");
-      const tasks = run.tasks.map(renderTask).join("");
-      return `
-        <section class="run ${escapeHTML(run.state)}">
-          <header class="run-head">
-            <span class="dot ${escapeHTML(run.state)}"></span>
-            <div class="run-main">
-              <div class="run-name" title="${escapeHTML(run.run_name)}">${escapeHTML(run.run_name || "ringer")}</div>
-              <span class="identity" style="--identity:${identityColor(identity)}" title="${escapeHTML(identity)}">${escapeHTML(identity)}</span>
-            </div>
-            <div class="run-meta">
-              <span>${fmtElapsed(run.elapsed_s)}</span>
-              <span>${Number(run.tokens || 0).toLocaleString()} tok</span>
-              ${final}
-            </div>
-          </header>
-          <div class="tasks">${tasks || `<div class="task"><div class="task-key">no tasks</div><div class="task-status">idle</div><div class="task-elapsed">00:00</div><div></div></div>`}</div>
-        </section>
-      `;
+        ? `ok ${run.pass} fail ${run.fail}`
+        : (run.state === "died" ? "died" : "");
+
+      setStateClass(record.node, "run", run.state);
+      setStateClass(record.elements.dot, "dot", run.state);
+      setText(record.elements.name, name);
+      setTitle(record.elements.name, name);
+      setText(record.elements.identity, identity);
+      setTitle(record.elements.identity, identity);
+      record.elements.identity.style.setProperty("--identity", identityColor(identity));
+      setText(record.elements.elapsed, fmtElapsed(run.elapsed_s));
+      setText(record.elements.tokens, formatTokens(run.tokens));
+      setText(record.elements.final, final);
+      setHidden(record.elements.final, final.length === 0);
+      syncTaskNodes(record, run.tasks);
+    }
+
+    function reconcileOrder(parent, nodes) {
+      let cursor = parent.firstElementChild;
+      for (const node of nodes) {
+        if (node === cursor) {
+          cursor = cursor.nextElementSibling;
+        } else {
+          parent.insertBefore(node, cursor);
+        }
+      }
+    }
+
+    function syncTaskNodes(runRecord, tasks) {
+      const displayTasks = tasks.length > 0
+        ? tasks
+        : [{__taskKey: "__empty__", key: "no tasks", status: "idle", elapsed_s: 0}];
+      const seen = new Set();
+      const orderedNodes = [];
+
+      displayTasks.forEach((task, index) => {
+        const key = taskKey(task, index);
+        let record = runRecord.tasks.get(key);
+        if (!record) {
+          record = createTaskRecord(key);
+          runRecord.tasks.set(key, record);
+        }
+        seen.add(key);
+        updateTaskRecord(record, task);
+        orderedNodes.push(record.node);
+      });
+
+      for (const [key, record] of runRecord.tasks) {
+        if (!seen.has(key)) {
+          record.node.remove();
+          runRecord.tasks.delete(key);
+        }
+      }
+
+      reconcileOrder(runRecord.elements.tasks, orderedNodes);
+    }
+
+    function syncRunNodes(runs) {
+      if (runs.length === 0) {
+        for (const [, record] of runNodes) record.node.remove();
+        runNodes.clear();
+        if (!emptyNode) emptyNode = createEmptyNode();
+        if (app.firstElementChild !== emptyNode || app.childElementCount !== 1) {
+          app.replaceChildren(emptyNode);
+        }
+        return;
+      }
+
+      if (emptyNode?.isConnected) emptyNode.remove();
+
+      const seen = new Set();
+      const orderedNodes = [];
+      runs.forEach((run, index) => {
+        const key = runKey(run, index);
+        let record = runNodes.get(key);
+        if (!record) {
+          record = createRunRecord(key);
+          runNodes.set(key, record);
+        }
+        seen.add(key);
+        updateRunRecord(record, run);
+        orderedNodes.push(record.node);
+      });
+
+      for (const [key, record] of runNodes) {
+        if (!seen.has(key)) {
+          record.node.remove();
+          runNodes.delete(key);
+        }
+      }
+
+      reconcileOrder(app, orderedNodes);
     }
 
     function updateTopbar(runs) {
@@ -383,34 +604,31 @@
       if (anyFailure) dotClass = "fail";
       else if (liveRuns.length > 0) dotClass = "live";
       else if (newest && newest.state === "finished" && Number(newest.pass || 0) > 0) dotClass = "pass";
-      topDot.className = `top-dot ${dotClass}`;
+      const topDotClass = `top-dot ${dotClass}`;
+      if (topDot.className !== topDotClass) topDot.className = topDotClass;
 
       if (liveRuns.length > 1) {
         const agents = liveRuns.reduce((sum, run) => sum + (run.tasks || []).length, 0);
-        headline.textContent = `${liveRuns.length} ringers`;
-        subtitle.textContent = `${agents} agents`;
+        setText(headline, `${liveRuns.length} ringers`);
+        setText(subtitle, `${agents} agents`);
       } else if (liveRuns.length === 1) {
-        headline.textContent = liveRuns[0].run_name || "ringer";
-        subtitle.textContent = liveRuns[0].identity || "unknown";
+        setText(headline, liveRuns[0].run_name || "ringer");
+        setText(subtitle, liveRuns[0].identity || "unknown");
       } else if (newest) {
-        headline.textContent = newest.state === "died" ? `${newest.run_name || "ringer"} died` : (newest.run_name || "ringer");
-        subtitle.textContent = `${runs.length} ringer${runs.length === 1 ? "" : "s"}`;
+        setText(headline, newest.state === "died" ? `${newest.run_name || "ringer"} died` : (newest.run_name || "ringer"));
+        setText(subtitle, `${runs.length} ringer${runs.length === 1 ? "" : "s"}`);
       } else {
-        headline.textContent = "Ringside mission control";
-        subtitle.textContent = "no ringers running";
+        setText(headline, "Ringside mission control");
+        setText(subtitle, "no ringers running");
       }
       const maxElapsed = runs.reduce((max, run) => Math.max(max, Number(run.elapsed_s || 0)), 0);
-      clock.textContent = fmtElapsed(maxElapsed);
+      setText(clock, fmtElapsed(maxElapsed));
     }
 
     function update(payload) {
       currentRuns = normalizePayload(payload);
       updateTopbar(currentRuns);
-      if (currentRuns.length === 0) {
-        app.innerHTML = `<div class="empty">no ringers running</div>`;
-        return;
-      }
-      app.innerHTML = currentRuns.map(renderRun).join("");
+      syncRunNodes(currentRuns);
     }
 
     async function pollLocalState() {

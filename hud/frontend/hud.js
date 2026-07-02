@@ -99,18 +99,21 @@
   `;
   document.head.appendChild(style);
 
-  // Swift-HUD parity: the whole background drags, not just the top bar.
-  // The attribute only fires on the element clicked itself, so buttons,
-  // cards, and text stay clickable.
-  document.body.setAttribute("data-tauri-drag-region", "");
-  const appMain = document.getElementById("app");
-  if (appMain) {
-    appMain.setAttribute("data-tauri-drag-region", "");
-  }
+  const currentWindow = tauri.window?.getCurrentWindow?.();
+  const noDragSelector = "button, a, input, select, textarea, [data-no-drag]";
+
+  // Swift-HUD parity: the whole background drags, while real controls stay
+  // clickable even when nested inside draggable-looking chrome.
+  document.addEventListener("mousedown", event => {
+    if (event.button !== 0) return;
+    const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+    if (!target) return;
+    if (target.closest(noDragSelector)) return;
+    const drag = currentWindow?.startDragging?.();
+    if (drag?.catch) drag.catch(() => {});
+  });
 
   if (topbar) {
-    topbar.setAttribute("data-tauri-drag-region", "");
-
     const collapseButton = document.createElement("button");
     collapseButton.type = "button";
     collapseButton.className = "hud-button hud-collapse";
