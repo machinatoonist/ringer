@@ -110,6 +110,10 @@ Four rules are baked into every worker invocation. They all cost us real debuggi
 3. **Verification executes the artifact** — an agent's own "done" is not evidence. Exit codes are.
 4. **Raw output only** — logs and eval rows carry verbatim worker output, never a summary. Anything that needs judgment reads the raw data.
 
+## License
+
+[PolyForm Shield 1.0.0](LICENSE.md) — free to use, modify, and share, including inside your own commercial work. The one thing you can't do is offer Ringer or Ringside (or a derivative that competes with them) as a product or service of your own. Commercial rights to the tool itself belong to Nate Jones Media LLC.
+
 ## Requirements
 
 - Python 3.11+ (stdlib only; `psycopg` needed only for the optional Postgres eval backend)
