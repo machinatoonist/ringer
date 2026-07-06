@@ -20,6 +20,10 @@ checks and raw logs support — no vibes, no worker self-reports.
   passes.
 - 2026-07-06 — adversarial pre-merge review (aicred spark): passed on
   attempt 1, ~85k tokens.
+- 2026-07-06 — motion design (5 HTML animations for video b-roll) + 2
+  editorial diagram pages, each verified by rendering through headless
+  Chromium to MP4/PNG: 7/7 passed on attempt 1. Broadcast-quality visual
+  output from rich storyboard specs; the render-as-check pattern works.
 
 ## glm-5.2 via opencode (`openrouter/z-ai/glm-5.2`)
 
@@ -33,6 +37,10 @@ checks and raw logs support — no vibes, no worker self-reports.
   needed the retry (attempt 2) where codex passed on attempt 1. Long
   structured reviews sit at the edge of its comfort zone; keep the section
   contract explicit in the spec.
+- 2026-07-06 — three mechanical image-generation batches (18 images via
+  openrouter-image commands, idempotent batch-runner spec): 3/3 passed on
+  attempt 1, ~14.5k tokens each. The "execute these exact commands, do not
+  improve them" spec pattern is fully reliable for glm-5.2.
 
 ## kimi-k2.7 via opencode (`openrouter/moonshotai/kimi-k2.7-code`)
 
