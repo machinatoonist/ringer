@@ -60,6 +60,12 @@ checks and raw logs support — no vibes, no worker self-reports.
   batch (task-level --since, pricing transitions, event durability + flock,
   unknown pricing, stderr notice) with test coverage: PASS attempt 1, 202s.
   Review->fix roundtrip in codex's lane works end to end.
+- 2026-07-06 — scoreboard HTML page (zero-LLM renderer, ~700-line diff,
+  design + evidence-floor ranking + cost math + notes parser): substance
+  PASS attempt 1 (the run's recorded retry was an orchestrator check bug —
+  the free-promo watchlist legitimately mentions a free model before the
+  ranked cards, and the check compared raw first-occurrence). Six review
+  findings fixed in one batch, PASS attempt 1, 141s.
 
 ## glm-5.2 via opencode (`openrouter/z-ai/glm-5.2`)
 
@@ -113,6 +119,13 @@ checks and raw logs support — no vibes, no worker self-reports.
   backfill atomicity (tmp+os.replace, pid-stamped backups) attempt 1 with
   the original behavioral grader unchanged. Structured review with an
   explicit lens is now proven glm territory, not just probation.
+- 2026-07-06 — solo adversarial review of the scoreboard renderer (~700
+  line diff, injection-focused lens): PASS attempt 1 — 1 MEDIUM (unanchored
+  MODEL-NOTES heading match cross-contaminating gpt-4/gpt-4o-style
+  families) + 5 real LOWs, plus an empirically-verified injection all-clear
+  (it actually rendered hostile model ids to prove escaping). Second
+  proven-tier structured review in one day; glm is now the default review
+  lane for mid-size diffs.
 
 ## kimi-k2.7 via opencode (`openrouter/moonshotai/kimi-k2.7-code`)
 

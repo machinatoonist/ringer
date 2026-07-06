@@ -244,6 +244,13 @@ per task via the manifest `engine` field. Defaults are deliberate:
   retry rescues. Then read `docs/MODEL-NOTES.md` (in the ringer repo) for
   the judgment the numbers can't carry. Routing is grounded in performance,
   not vibes (Jon directive 2026-07-06).
+- **"Show me the scoreboard" is one command.** When the human asks to see
+  the model scoreboard, rankings, model costs, or "which models work best,"
+  run `./ringer.py models --open` — it renders the full scoreboard (tiers,
+  first-try rates, est. $/task, usage, MODEL-NOTES excerpts, free-promo
+  watchlist) as a zero-LLM HTML page in the artifact library and opens it
+  in their browser. Costs no tokens; never hand-summarize the numbers when
+  the page can show them.
 - **Give every task a `task_type`** (canonical vocabulary in the README —
   code-feature, code-fix, code-review, research, persona-review, site-build,
   image-gen, docs, probe, bakeoff, ...). Untyped tasks bucket as (untyped)
