@@ -142,7 +142,7 @@ For CI and evals, `config.sample.toml` includes `[engines.mock]` so the enforcem
 
 ![Identical workers, each under its own light](docs/engines.png)
 
-Codex is built in. Anything with a headless CLI is a config block away:
+Ringer ships with three worker lanes: **Codex CLI** is the built-in default, and `config.sample.toml` carries verified engine blocks for **Grok Build CLI** (works as-is once you `grok login`) and **OpenCode + OpenRouter** (one edit: point `bin` at the sandbox wrapper in your clone). Anything else with a headless CLI is a config block away:
 
 ```toml
 [engines.mymodel]
@@ -150,7 +150,7 @@ bin = "/usr/local/bin/mycli"
 args_template = ["run", "{spec}", "--dir", "{taskdir}"]
 ```
 
-Per-task `"engine": "mymodel"` routes work to it. `config.sample.toml` ships commented examples for Grok and OpenCode setups — the invariants (stdin closed, process-group kill, executed verification, raw logs) apply to every engine identically.
+Per-task `"engine": "mymodel"` routes work to it — the invariants (stdin closed, process-group kill, executed verification, raw logs) apply to every engine identically.
 
 ### The universal harness: OpenCode + OpenRouter
 
@@ -177,11 +177,28 @@ opencode auth login   # select OpenRouter, paste the key
 
 Route with per-task `"engine": "opencode"`, pick the model with per-task `"model": "openrouter/<any-model>"`, and set reasoning effort via `engine_args`: `["--variant", "low|high|max"]`. A sensible split: mechanical or tightly-specced tasks on the cheap lane, gnarly ones on your frontier engine — the executed check catches shortfalls either way, and `swarm_runs` rows tell you whether the cheap lane's pass rate holds.
 
+### The plan lane: Grok Build CLI
+
+If you already pay for SuperGrok or X Premium Plus, Grok Build is a second flat-rate worker lane — no per-token bill:
+
+```bash
+# 1) Install (pick one)
+curl -fsSL https://x.ai/cli/install.sh | bash
+# or: npm install -g @xai-official/grok
+
+# 2) Sign in — OAuth on a SuperGrok or X Premium Plus plan
+grok login
+
+# 3) In ~/.config/ringer/config.toml, uncomment [engines.grok]
+```
+
+Route with per-task `"engine": "grok"` and pick the model with `"model": "grok-build"` or `"model": "grok-composer-2.5-fast"` (the shipped default — the speed pick). Grok brings its own OS sandbox on macOS (profile `workspace`: read everywhere, writes confined to the task dir, temp, and `~/.grok`), and its JSON output exposes no token counts — plan-billed workers report cost as included in plan.
+
 ## Ringside — mission control
 
 ![Ringside in the browser: a run's live results page with per-worker status and verification](docs/ringside.png)
 
-Ringside is a local web page — no install, no account, nothing leaves your machine — that every run opens automatically:
+Ringside is a local web page — no install, no account, nothing leaves your machine. Your first run opens it automatically; every later run streams into the same tab:
 
 ```bash
 ./ringer.py run manifest.json   # starts Ringside and opens the tab for you
