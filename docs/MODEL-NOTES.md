@@ -17,6 +17,24 @@ checks and raw logs support — no vibes, no worker self-reports.
 - Strongest general worker; the default engine. Spend reasoning effort per
   task via `engine_args` (`["-c", "model_reasoning_effort=low|medium|high"]`)
   — high on gnarly tasks, low on boilerplate.
+- 2026-07-12 — billing migration probe (Codex CLI v0.144.1, arithmetic +
+  marker check): attempt 1 FAILED — `401 Unauthorized: Missing bearer or
+  basic authentication in header` on the Responses websocket/HTTP endpoint,
+  even though `OPENAI_API_KEY` was set in the environment (via `~/.zshenv`)
+  and `codex doctor` reported "auth is provided by environment" /
+  "reachability mode: API key auth". Doctor's diagnosis was wrong in
+  practice — merely exporting the env var is not enough for this version to
+  actually send the key on real `codex exec` calls. Fix: register the key
+  explicitly with `printenv OPENAI_API_KEY | codex login --with-api-key`,
+  which writes `stored auth mode = api_key` into `~/.codex/auth.json`; only
+  then did doctor's "stored API key: true" match reality. Re-ran the same
+  probe: PASS attempt 1, 10.8s, 12,695 tokens. Also: a stale cached ChatGPT
+  login (`~/.codex/auth.json` from a prior Plus subscription) coexisting
+  with the env var produced a "mixed auth signals" warning in doctor before
+  any of this — ran `codex logout` first to remove it. Lesson for anyone
+  switching Codex to API billing: don't trust a bare env var or `doctor`'s
+  green checkmarks — run `codex login --with-api-key` explicitly, then
+  verify with an executed probe, not just `doctor`.
 - 2026-07-05 — carried the heavy lanes of the milk-crate demo rehearsals
   (market read with source allowlist, site build) with clean first-attempt
   passes.
@@ -189,6 +207,16 @@ checks and raw logs support — no vibes, no worker self-reports.
 
 ## grok-composer-2.5-fast (Grok CLI engine, flat plan)
 
+- 2026-07-12 — billing migration probe (one-task manifest, arithmetic +
+  marker in answer.txt, verified check): PASS attempt 1, 8.9s, under
+  `XAI_API_KEY` API-key auth instead of the SuperGrok OAuth flow (trial was
+  ending 2026-07-18; see [[project_ringer_billing_migration]]). No config
+  changes were needed — the grok engine already reads `XAI_API_KEY` from the
+  environment ahead of OAuth. Model is reachable via plain API key, not
+  plan-gated as suspected going in. Caveat: Grok's CLI JSON output still
+  reports no token/usage fields (confirmed in `config.toml` comments), so
+  the scoreboard's `tokens`/`$` columns stay blank for this engine even
+  under real billing — check actual spend on the xAI console, not here.
 - 2026-07-06 — first outing (elsas-website demo): audition PASS attempt 1
   (138s — slower than grok-build but the strongest copy of the round).
   Accessibility constitution (14 testable criteria, SC-numbered) attempt 1;
