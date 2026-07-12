@@ -22,7 +22,12 @@ SANDBOX=1
 if [ "${1:-}" = "--no-sandbox" ]; then SANDBOX=0; shift; fi
 
 # Resolve opencode without tripping `set -e` (command -v returns nonzero when absent).
-if ! OPENCODE_BIN="$(command -v opencode)" || [ -z "$OPENCODE_BIN" ]; then
+# The official installer places the binary under ~/.opencode/bin; GUI launchers
+# commonly do not source an interactive shell's PATH, so use that location too.
+if ! OPENCODE_BIN="$(command -v opencode 2>/dev/null)" || [ -z "$OPENCODE_BIN" ]; then
+  OPENCODE_BIN="$HOME/.opencode/bin/opencode"
+fi
+if [ ! -x "$OPENCODE_BIN" ]; then
   echo "opencode-sandboxed.sh: opencode not found on PATH" >&2
   exit 127
 fi

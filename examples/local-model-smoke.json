@@ -1,0 +1,18 @@
+{
+  "run_name": "local-model-lane-smoke",
+  "workdir": "~/.ringer/smoke/local-model-lane",
+  "max_parallel": 1,
+  "tasks": [
+    {
+      "key": "langgraph-capital",
+      "task_type": "probe",
+      "engine": "langgraph",
+      "model": "llama3.2:1b",
+      "spec": "Write only the answer to this question, nothing else — no punctuation, no explanation: What is the capital of France?",
+      "check": "if test -s answer.md && grep -qi 'paris' answer.md; then echo 'PASS: answer.md names Paris'; echo '--- answer.md ---'; cat answer.md; else echo 'FAIL: answer.md missing or does not contain Paris'; echo '--- answer.md (if any) ---'; cat answer.md 2>/dev/null || echo '(no answer.md)'; exit 1; fi",
+      "expect_files": ["answer.md"],
+      "timeout_s": 600,
+      "verified": "answer.md exists, is non-empty, and contains the correct answer (Paris) — proving the LangGraph lane ran local inference on llama3.2:1b and persisted a real, correct deliverable, not just that a file exists"
+    }
+  ]
+}

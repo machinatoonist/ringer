@@ -194,6 +194,10 @@ grok login
 
 Route with per-task `"engine": "grok"` and pick the model with `"model": "grok-build"` or `"model": "grok-composer-2.5-fast"` (the shipped default — the speed pick). Grok brings its own OS sandbox on macOS (profile `workspace`: read everywhere, writes confined to the task dir, temp, and `~/.grok`), and its JSON output exposes no token counts — plan-billed workers report cost as included in plan.
 
+### The local lane: Ollama (LangGraph)
+
+You can run a model entirely on your own machine — no API bill, nothing leaves the box, no dependency on a single inference provider. This fork adds a `[engines.langgraph]` worker (`engines/langgraph_worker.py`) that drives a local [Ollama](https://ollama.com)-served model through a small LangGraph agent, and it wires the same local model as an OpenCode provider too. On modest hardware (e.g. an 8 GB laptop) a small model like `llama3.2:1b` handles the lightweight LangGraph `direct` lane; scaling up to a bigger machine and a larger local coder (Qwen 30B class) is a one-field `"model"` change. Full install, config, and scale-up instructions: **[docs/LOCAL-MODEL-LANE.md](docs/LOCAL-MODEL-LANE.md)**.
+
 ## Ringside — mission control
 
 ![Ringside in the browser: a run's live results page with per-worker status and verification](docs/ringside.png)
